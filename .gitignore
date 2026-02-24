@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Virtual env
+.venv/
+venv/
+
+# Environment
+.env
+.env.*
+
+# Logs and data
+logs/
+*.log
+data/
+db/
+
+# OS
+.DS_Store
