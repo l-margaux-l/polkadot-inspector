@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
+from time import perf_counter
 
 from models.node import Node
 from services.rpc_client import connect_to_node, get_chain_head
@@ -93,3 +94,21 @@ async def calculate_time_since_last_block(last_timestamp: datetime) -> int:
     delta = now - last_timestamp.astimezone(timezone.utc)
     seconds = int(delta.total_seconds())
     return seconds if seconds >= 0 else 0
+
+
+async def measure_rpc_response_time(node: Node) -> float:
+    """Measure RPC response time in milliseconds; returns -1.0 on timeout/error."""
+    timeout_seconds = 5.0
+    start = perf_counter()
+
+    async def do_request() -> None:
+        substrate = await connect_to_node(node.rpc_url)
+        await asyncio.to_thread(substrate.rpc_request, "system_health", [])
+
+    try:
+        await asyncio.wait_for(do_request(), timeout=timeout_seconds)
+    except (TimeoutError, Exception):
+        return -1.0
+
+    end = perf_counter()
+    return (end - start) * 1000.0
