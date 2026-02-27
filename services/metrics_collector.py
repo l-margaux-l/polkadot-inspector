@@ -112,3 +112,30 @@ async def measure_rpc_response_time(node: Node) -> float:
 
     end = perf_counter()
     return (end - start) * 1000.0
+
+
+async def get_finality_lag(node: Node) -> int:
+    """Compute current head height minus finalized head height; returns 0 on failure."""
+    try:
+        substrate = await connect_to_node(node.rpc_url)
+        head = await asyncio.to_thread(get_chain_head, substrate)
+        head_height = int(head["block_height"])
+
+        response = await asyncio.to_thread(substrate.rpc_request, "chain_getFinalizedHead", [])
+        finalized_hash = response.get("result")
+        if not isinstance(finalized_hash, str) or not finalized_hash:
+            return 0
+
+        finalized_height = int(substrate.get_block_number(finalized_hash))
+        lag = head_height - finalized_height
+        return lag if lag >= 0 else 0
+    except Exception:
+        return 0
+
+
+async def evaluate_finality_health(lag: int) -> str:
+    if lag == 0 or lag > 30:
+        return "critical"
+    if lag >= 10:
+        return "warning"
+    return "healthy"
