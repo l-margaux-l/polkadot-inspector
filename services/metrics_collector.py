@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 
 from models.node import Node
 from services.rpc_client import connect_to_node, get_chain_head
@@ -35,11 +36,7 @@ async def get_network_best_block() -> int:
 
 
 async def get_peers_count(node: Node) -> int:
-    """Fetch connected peers count for a node.
-
-    Tries `system_health` first (commonly enabled on public endpoints).
-    Falls back to `system_networkState` when available (often disabled as unsafe).
-    """
+    """Fetch connected peers count for a node."""
     substrate = await connect_to_node(node.rpc_url)
 
     health = await asyncio.to_thread(substrate.rpc_request, "system_health", [])
@@ -70,3 +67,29 @@ async def evaluate_peers_health(peers: int) -> str:
     if peers > 5:
         return "warning"
     return "critical"
+
+
+async def get_last_block_timestamp(node: Node) -> datetime:
+    """Fetch the timestamp for the node's current head block (UTC)."""
+    substrate = await connect_to_node(node.rpc_url)
+    head = await asyncio.to_thread(get_chain_head, substrate)
+    block_hash = str(head["block_hash"])
+    result = await asyncio.to_thread(
+        substrate.query,
+        module="Timestamp",
+        storage_function="Now",
+        params=[],
+        block_hash=block_hash,
+    )
+    timestamp_ms = int(result.value)
+    return datetime.fromtimestamp(timestamp_ms / 1000.0, tz=timezone.utc)
+
+
+async def calculate_time_since_last_block(last_timestamp: datetime) -> int:
+    if last_timestamp.tzinfo is None:
+        last_timestamp = last_timestamp.replace(tzinfo=timezone.utc)
+
+    now = datetime.now(timezone.utc)
+    delta = now - last_timestamp.astimezone(timezone.utc)
+    seconds = int(delta.total_seconds())
+    return seconds if seconds >= 0 else 0
