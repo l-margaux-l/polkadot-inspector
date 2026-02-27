@@ -1,11 +1,30 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from time import perf_counter
+from typing import TypeVar
 
 from models.node import Node
 from services.rpc_client import connect_to_node, get_chain_head
+
+
+logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
+
+async def get_metric_with_timeout(metric_func: Callable[[], Awaitable[T]], timeout: float = 5.0) -> T | None:
+    try:
+        return await asyncio.wait_for(metric_func(), timeout=timeout)
+    except asyncio.TimeoutError:
+        logger.warning("Timeout collecting metric: %s", getattr(metric_func, "__name__", "<unknown>"))
+        return None
+    except Exception:
+        logger.exception("Error collecting metric: %s", getattr(metric_func, "__name__", "<unknown>"))
+        return None
 
 
 async def get_block_height(node: Node) -> int:
