@@ -1,0 +1,19 @@
+{
+  "nodes": [
+    {
+      "name": "polkadot_main",
+      "chain": "polkadot",
+      "rpc_url": "wss://rpc.polkadot.io"
+    },
+    {
+      "name": "kusama_main",
+      "chain": "kusama",
+      "rpc_url": "wss://kusama-rpc.polkadot.io"
+    },
+    {
+      "name": "astar_main",
+      "chain": "astar",
+      "rpc_url": "wss://rpc.astar.network"
+    }
+  ]
+}
