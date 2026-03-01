@@ -16,10 +16,14 @@ venv/
 .env.*
 
 # Logs and data
-logs/
-*.log
-data/
-db/
+logs/*
+!logs/.gitkeep
+
+data/*
+!data/.gitkeep
+
+db/*
+!db/.gitkeep
 
 # OS
 .DS_Store
