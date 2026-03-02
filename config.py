@@ -18,3 +18,11 @@ DEFAULT_POLL_INTERVAL_SECONDS: int = int(os.getenv("POLL_INTERVAL_SECONDS", "60"
 
 LOGS_DIR: str = os.getenv("LOGS_DIR", "logs")
 DATA_DIR: str = os.getenv("DATA_DIR", "data")
+
+SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+EMAIL_FROM = os.getenv("EMAIL_FROM", "")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")
+EMAIL_TO = os.getenv("EMAIL_TO", "")
+
+SLACK_WEBHOOK_URL: str = os.getenv("SLACK_WEBHOOK_URL", "")
