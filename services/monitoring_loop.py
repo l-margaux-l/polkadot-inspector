@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from config import DEFAULT_POLL_INTERVAL_SECONDS, NODES_CONFIG_PATH
+from config import CHECK_INTERVAL, NODES_CONFIG_PATH
 from models.node import Node
 from services.alerts import check_alerts
 from services.alerts_logger import log_alert
@@ -18,7 +18,7 @@ async def monitoring_loop(check_interval: int | None = None) -> None:
     db = MetricsDB()
     db.create_tables()
 
-    interval = check_interval or DEFAULT_POLL_INTERVAL_SECONDS
+    interval = check_interval or CHECK_INTERVAL
 
     while True:
         nodes = load_nodes_config(NODES_CONFIG_PATH)
