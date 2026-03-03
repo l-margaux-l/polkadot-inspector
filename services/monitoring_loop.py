@@ -10,7 +10,7 @@ from services.database import MetricsDB
 from services.health_checker import collect_all_metrics
 from services.logger import log_metrics, setup_logger
 from services.slack_notifier import send_slack_alert
-from main import load_nodes_config
+from services.nodes_config import load_nodes_config
 
 
 async def monitoring_loop(check_interval: int | None = None) -> None:

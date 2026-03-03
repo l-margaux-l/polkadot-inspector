@@ -2,20 +2,14 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
-from dataclasses import dataclass
-from pathlib import Path
+import signal
 
 from config import NODES_CONFIG_PATH
 from models.node import Node
 from services.metrics_collector import get_block_height
-
-
-@dataclass(frozen=True, slots=True)
-class NodeConfig:
-    name: str
-    chain: str
-    rpc_url: str
+from services.monitoring_loop import monitoring_loop
+from services.logger import setup_logger
+from services.nodes_config import NodeConfig, load_nodes_config
 
 
 def parse_args() -> argparse.Namespace:
@@ -23,27 +17,46 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--collect-block-height", action="store_true")
     parser.add_argument("--node", type=str, help="Node name from config")
     parser.add_argument("--all-nodes", action="store_true", help="Check all nodes")
+
+    parser.add_argument(
+        "--monitor",
+        action="store_true",
+        help="Run continuous monitoring loop",
+    )
+
+    parser.add_argument(
+        "--interval",
+        type=int,
+        help="Override monitoring interval in seconds",
+    )
+
     return parser.parse_args()
 
 
-def load_nodes_config(path: Path) -> list[NodeConfig]:
-    raw = json.loads(path.read_text(encoding="utf-8"))
-    nodes = raw.get("nodes")
-    if not isinstance(nodes, list):
-        raise ValueError("Invalid nodes_config.json: 'nodes' must be a list")
+async def shutdown_handler(loop: asyncio.AbstractEventLoop) -> None:
+    logger = setup_logger()
+    logger.info("Received shutdown signal, cancelling tasks")
 
-    parsed: list[NodeConfig] = []
-    for item in nodes:
-        if not isinstance(item, dict):
-            raise ValueError("Invalid nodes_config.json: each node must be an object")
-        name = str(item.get("name", "")).strip()
-        chain = str(item.get("chain", "")).strip()
-        rpc_url = str(item.get("rpc_url", "")).strip()
-        if not name or not chain or not rpc_url:
-            raise ValueError("Invalid nodes_config.json: node requires name, chain, rpc_url")
-        parsed.append(NodeConfig(name=name, chain=chain, rpc_url=rpc_url))
+    tasks: set[asyncio.Task] = {
+        t for t in asyncio.all_tasks(loop) if t is not asyncio.current_task(loop)
+    }
 
-    return parsed
+    for task in tasks:
+        task.cancel()
+
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    logger.info("Shutdown complete, stopping event loop")
+    loop.stop()
+
+
+def setup_signal_handlers(loop: asyncio.AbstractEventLoop) -> None:
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(
+            sig,
+            lambda s=sig: asyncio.create_task(shutdown_handler(loop)),
+        )
 
 
 def select_nodes(all_nodes: list[NodeConfig], *, name_or_chain: str | None, check_all: bool) -> list[NodeConfig]:
@@ -79,8 +92,20 @@ async def collect_block_heights(nodes: list[NodeConfig]) -> list[tuple[NodeConfi
 def main() -> None:
     args = parse_args()
 
+    if args.monitor:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        setup_signal_handlers(loop)
+
+        try:
+            loop.create_task(monitoring_loop(check_interval=args.interval))
+            loop.run_forever()
+        finally:
+            loop.close()
+        return
+
     if not args.collect_block_height:
-        print("No action specified. Use --collect-block-height")
+        print("No action specified. Use --collect-block-height or --monitor")
         return
 
     if args.all_nodes and args.node:
