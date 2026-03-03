@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import List
 
+from config import ALERT_THRESHOLDS
 from models.metrics import HealthMetrics
 
 
@@ -27,9 +28,20 @@ def check_alerts(metrics: HealthMetrics) -> List[Alert]:
     alerts: List[Alert] = []
     now = _now_utc()
 
+    block_warning = ALERT_THRESHOLDS["block_lag_warning"]
+    block_critical = ALERT_THRESHOLDS["block_lag_critical"]
+    peers_warning = ALERT_THRESHOLDS["peers_warning"]
+    peers_critical = ALERT_THRESHOLDS["peers_critical"]
+    ts_warning = ALERT_THRESHOLDS["time_since_block_warning"]
+    ts_critical = ALERT_THRESHOLDS["time_since_block_critical"]
+    rpc_warning = ALERT_THRESHOLDS["rpc_response_warning"]
+    rpc_critical = ALERT_THRESHOLDS["rpc_response_critical"]
+    finality_warning = ALERT_THRESHOLDS["finality_lag_warning"]
+    finality_critical = ALERT_THRESHOLDS["finality_lag_critical"]
+
     if metrics.block_height is not None and metrics.current_block_height is not None:
         lag = metrics.current_block_height - metrics.block_height
-        if lag > 50:
+        if lag >= block_critical:
             alerts.append(
                 Alert(
                     level=ALERT_LEVEL_CRITICAL,
@@ -37,7 +49,7 @@ def check_alerts(metrics: HealthMetrics) -> List[Alert]:
                     timestamp=now,
                 )
             )
-        elif lag > 20:
+        elif lag >= block_warning:
             alerts.append(
                 Alert(
                     level=ALERT_LEVEL_WARNING,
@@ -47,7 +59,7 @@ def check_alerts(metrics: HealthMetrics) -> List[Alert]:
             )
 
     if metrics.peers_count is not None:
-        if metrics.peers_count <= 5:
+        if metrics.peers_count <= peers_critical:
             alerts.append(
                 Alert(
                     level=ALERT_LEVEL_CRITICAL,
@@ -55,7 +67,7 @@ def check_alerts(metrics: HealthMetrics) -> List[Alert]:
                     timestamp=now,
                 )
             )
-        elif metrics.peers_count <= 20:
+        elif metrics.peers_count <= peers_warning:
             alerts.append(
                 Alert(
                     level=ALERT_LEVEL_WARNING,
@@ -65,7 +77,7 @@ def check_alerts(metrics: HealthMetrics) -> List[Alert]:
             )
 
     if metrics.finality_lag is not None:
-        if metrics.finality_lag == 0 or metrics.finality_lag > 30:
+        if metrics.finality_lag == 0 or metrics.finality_lag >= finality_critical:
             alerts.append(
                 Alert(
                     level=ALERT_LEVEL_CRITICAL,
@@ -73,7 +85,7 @@ def check_alerts(metrics: HealthMetrics) -> List[Alert]:
                     timestamp=now,
                 )
             )
-        elif metrics.finality_lag >= 10:
+        elif metrics.finality_lag >= finality_warning:
             alerts.append(
                 Alert(
                     level=ALERT_LEVEL_WARNING,
@@ -83,37 +95,49 @@ def check_alerts(metrics: HealthMetrics) -> List[Alert]:
             )
 
     if metrics.rpc_response_time is not None:
-        if metrics.rpc_response_time > 2000:
+        if metrics.rpc_response_time >= rpc_critical:
             alerts.append(
                 Alert(
                     level=ALERT_LEVEL_CRITICAL,
-                    message=f"RPC response time is too high: {metrics.rpc_response_time:.0f} ms",
+                    message=(
+                        "RPC response time is too high: "
+                        f"{metrics.rpc_response_time:.0f} ms"
+                    ),
                     timestamp=now,
                 )
             )
-        elif metrics.rpc_response_time > 1000:
+        elif metrics.rpc_response_time >= rpc_warning:
             alerts.append(
                 Alert(
                     level=ALERT_LEVEL_WARNING,
-                    message=f"RPC response time is elevated: {metrics.rpc_response_time:.0f} ms",
+                    message=(
+                        "RPC response time is elevated: "
+                        f"{metrics.rpc_response_time:.0f} ms"
+                    ),
                     timestamp=now,
                 )
             )
 
     if metrics.time_since_last_block is not None:
-        if metrics.time_since_last_block > 120:
+        if metrics.time_since_last_block >= ts_critical:
             alerts.append(
                 Alert(
                     level=ALERT_LEVEL_CRITICAL,
-                    message=f"Time since last block is too high: {metrics.time_since_last_block} s",
+                    message=(
+                        "Time since last block is too high: "
+                        f"{metrics.time_since_last_block} s"
+                    ),
                     timestamp=now,
                 )
             )
-        elif metrics.time_since_last_block > 60:
+        elif metrics.time_since_last_block >= ts_warning:
             alerts.append(
                 Alert(
                     level=ALERT_LEVEL_WARNING,
-                    message=f"Time since last block is elevated: {metrics.time_since_last_block} s",
+                    message=(
+                        "Time since last block is elevated: "
+                        f"{metrics.time_since_last_block} s"
+                    ),
                     timestamp=now,
                 )
             )
