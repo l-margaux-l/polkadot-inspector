@@ -6,6 +6,8 @@ import signal
 
 from config import NODES_CONFIG_PATH
 from models.node import Node
+from services.health_checker import collect_all_metrics
+from services.alerts import check_alerts
 from services.metrics_collector import get_block_height
 from services.monitoring_loop import monitoring_loop
 from services.logger import setup_logger
@@ -30,6 +32,18 @@ def parse_args() -> argparse.Namespace:
         help="Override monitoring interval in seconds",
     )
 
+    parser.add_argument(
+        "--check-node",
+        type=str,
+        help="Run one-off health check for a single node by name",
+    )
+
+    parser.add_argument(
+        "--check-all-nodes",
+        action="store_true",
+        help="Run one-off health check for all configured nodes",
+    )
+
     return parser.parse_args()
 
 
@@ -49,6 +63,65 @@ async def shutdown_handler(loop: asyncio.AbstractEventLoop) -> None:
 
     logger.info("Shutdown complete, stopping event loop")
     loop.stop()
+
+
+def _format_health_line(node_name: str, metrics_status: str, alerts_count: int) -> str:
+    return f"{node_name:15} | {metrics_status:8} | alerts: {alerts_count}"
+
+
+async def _check_single_node(node_name: str) -> None:
+    logger = setup_logger()
+    nodes = load_nodes_config(NODES_CONFIG_PATH)
+    target = next((n for n in nodes if n.name == node_name), None)
+    if target is None:
+        print(f"Node '{node_name}' not found in config")
+        return
+
+    node = Node(name=target.name, rpc_url=target.rpc_url)
+    logger.info("Running manual health check", extra={"extra_data": {"node_name": node.name}})
+
+    metrics = await collect_all_metrics(node)
+    alerts = check_alerts(metrics)
+
+    print("=== Node health report ===")
+    print(f"Node: {node.name}")
+    print(f"Status: {metrics.status}")
+    print(f"Block height: {metrics.block_height}")
+    print(f"Peers: {metrics.peers_count}")
+    print(f"Finality lag: {metrics.finality_lag}")
+    print(f"RPC response time: {metrics.rpc_response_time} ms")
+    print(f"Time since last block: {metrics.time_since_last_block} s")
+    print()
+    if alerts:
+        print("Alerts:")
+        for alert in alerts:
+            print(f"- [{alert.level}] {alert.message}")
+    else:
+        print("Alerts: none")
+
+
+async def _check_all_nodes() -> None:
+    logger = setup_logger()
+    nodes = load_nodes_config(NODES_CONFIG_PATH)
+    if not nodes:
+        print("No nodes configured")
+        return
+
+    print("=== Health summary for all nodes ===")
+    print("Node            | Status   | alerts")
+    print("----------------+----------+--------")
+
+    for cfg in nodes:
+        node = Node(name=cfg.name, rpc_url=cfg.rpc_url)
+        logger.info(
+            "Running manual health check (all nodes)",
+            extra={"extra_data": {"node_name": node.name}},
+        )
+
+        metrics = await collect_all_metrics(node)
+        alerts = check_alerts(metrics)
+        line = _format_health_line(node.name, metrics.status, len(alerts))
+        print(line)
 
 
 def setup_signal_handlers(loop: asyncio.AbstractEventLoop) -> None:
@@ -103,9 +176,20 @@ def main() -> None:
         finally:
             loop.close()
         return
+            
+    if args.check_node:
+        asyncio.run(_check_single_node(args.check_node))
+        return
+
+    if args.check_all_nodes:
+        asyncio.run(_check_all_nodes())
+        return
 
     if not args.collect_block_height:
-        print("No action specified. Use --collect-block-height or --monitor")
+        print(
+            "No action specified. Use "
+            "--collect-block-height, --check-node, --check-all-nodes or --monitor"
+        )
         return
 
     if args.all_nodes and args.node:
