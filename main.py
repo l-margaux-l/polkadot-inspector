@@ -6,6 +6,7 @@ import signal
 
 from config import NODES_CONFIG_PATH, DATA_DIR
 from models.node import Node
+from models.metrics import HealthMetrics
 from services.health_checker import collect_all_metrics
 from services.alerts import check_alerts
 from services.metrics_collector import get_block_height
@@ -14,6 +15,7 @@ from services.logger import setup_logger
 from services.nodes_config import NodeConfig, load_nodes_config
 from services.database import MetricsDB
 from services.csv_exporter import export_metrics_to_csv
+from services.console_printer import print_metrics_table, print_alert
 
 
 def parse_args() -> argparse.Namespace:
@@ -128,9 +130,7 @@ async def _check_all_nodes() -> None:
         print("No nodes configured")
         return
 
-    print("=== Health summary for all nodes ===")
-    print("Node            | Status   | alerts")
-    print("----------------+----------+--------")
+    metrics_list: list[HealthMetrics] = []
 
     for cfg in nodes:
         node = Node(name=cfg.name, rpc_url=cfg.rpc_url)
@@ -140,9 +140,9 @@ async def _check_all_nodes() -> None:
         )
 
         metrics = await collect_all_metrics(node)
-        alerts = check_alerts(metrics)
-        line = _format_health_line(node.name, metrics.status, len(alerts))
-        print(line)
+        metrics_list.append(metrics)
+
+    print_metrics_table(metrics_list)
 
 
 def _print_history_csv(metrics_list: list) -> None:
