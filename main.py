@@ -4,7 +4,7 @@ import argparse
 import asyncio
 import signal
 
-from config import NODES_CONFIG_PATH
+from config import NODES_CONFIG_PATH, DATA_DIR
 from models.node import Node
 from services.health_checker import collect_all_metrics
 from services.alerts import check_alerts
@@ -12,6 +12,8 @@ from services.metrics_collector import get_block_height
 from services.monitoring_loop import monitoring_loop
 from services.logger import setup_logger
 from services.nodes_config import NodeConfig, load_nodes_config
+from services.database import MetricsDB
+from services.csv_exporter import export_metrics_to_csv
 
 
 def parse_args() -> argparse.Namespace:
@@ -42,6 +44,25 @@ def parse_args() -> argparse.Namespace:
         "--check-all-nodes",
         action="store_true",
         help="Run one-off health check for all configured nodes",
+    )
+
+    parser.add_argument(
+        "--history",
+        type=str,
+        help="Show metrics history for a node by name",
+    )
+
+    parser.add_argument(
+        "--hours",
+        type=int,
+        default=24,
+        help="How many past hours to include in history (default: 24)",
+    )
+
+    parser.add_argument(
+        "--export-csv",
+        action="store_true",
+        help="Export history to CSV file instead of printing to stdout",
     )
 
     return parser.parse_args()
@@ -124,6 +145,50 @@ async def _check_all_nodes() -> None:
         print(line)
 
 
+def _print_history_csv(metrics_list: list) -> None:
+    print(
+        "timestamp,node_name,block_height,current_block_height,"
+        "peers_count,finality_lag,time_since_last_block,rpc_response_time,status"
+    )
+    for m in metrics_list:
+        print(
+            f"{m.timestamp.isoformat()},"
+            f"{m.node_name},"
+            f"{m.block_height or ''},"
+            f"{m.current_block_height or ''},"
+            f"{m.peers_count or ''},"
+            f"{m.finality_lag or ''},"
+            f"{m.time_since_last_block or ''},"
+            f"{m.rpc_response_time or ''},"
+            f"{m.status}"
+        )
+
+
+def _history_csv_path(node_name: str) -> str:
+    from pathlib import Path
+
+    base = Path(DATA_DIR)
+    base.mkdir(parents=True, exist_ok=True)
+    safe_name = node_name.replace(" ", "_")
+    return str(base / f"history_{safe_name}.csv")
+
+
+def _show_history(node_name: str, hours: int, export_csv: bool) -> None:
+    db = MetricsDB()
+    metrics_list = db.get_metrics_for_node(node_name=node_name, hours=hours)
+
+    if not metrics_list:
+        print(f"No metrics found for node '{node_name}' in the last {hours} hours")
+        return
+
+    if export_csv:
+        filename = _history_csv_path(node_name)
+        export_metrics_to_csv(metrics_list, filename)
+        print(f"History exported to {filename}")
+    else:
+        _print_history_csv(metrics_list)
+
+
 def setup_signal_handlers(loop: asyncio.AbstractEventLoop) -> None:
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(
@@ -176,7 +241,7 @@ def main() -> None:
         finally:
             loop.close()
         return
-            
+
     if args.check_node:
         asyncio.run(_check_single_node(args.check_node))
         return
@@ -185,10 +250,15 @@ def main() -> None:
         asyncio.run(_check_all_nodes())
         return
 
+    if args.history:
+        _show_history(args.history, args.hours, args.export_csv)
+        return
+
     if not args.collect_block_height:
         print(
             "No action specified. Use "
-            "--collect-block-height, --check-node, --check-all-nodes or --monitor"
+            "--collect-block-height, --check-node, --check-all-nodes, "
+            "--history or --monitor"
         )
         return
 
