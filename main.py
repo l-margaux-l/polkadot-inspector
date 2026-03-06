@@ -15,7 +15,8 @@ from services.logger import setup_logger
 from services.nodes_config import NodeConfig, load_nodes_config
 from services.database import MetricsDB
 from services.csv_exporter import export_metrics_to_csv
-from services.console_printer import print_metrics_table, print_alert
+from services.console_printer import print_metrics_table
+from services.metrics_benchmark import run_benchmark
 
 
 def parse_args() -> argparse.Namespace:
@@ -65,6 +66,12 @@ def parse_args() -> argparse.Namespace:
         "--export-csv",
         action="store_true",
         help="Export history to CSV file instead of printing to stdout",
+    )
+
+    parser.add_argument(
+        "--benchmark",
+        action="store_true",
+        help="Run benchmark mode to test metrics collection timings",
     )
 
     return parser.parse_args()
@@ -229,6 +236,10 @@ async def collect_block_heights(nodes: list[NodeConfig]) -> list[tuple[NodeConfi
 
 def main() -> None:
     args = parse_args()
+
+    if args.benchmark:
+        asyncio.run(run_benchmark())
+        return
 
     if args.monitor:
         loop = asyncio.new_event_loop()
