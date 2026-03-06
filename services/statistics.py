@@ -82,11 +82,8 @@ def _build_node_stats(node_name: str, hours: int) -> NodeStatistics:
 
 def generate_daily_report(hours: int = 24) -> dict:
     db = MetricsDB()
-    # Получаем уникальные имена нод, которые были в БД за период.
     since = datetime.now(timezone.utc) - timedelta(hours=hours)
-    # Мы уже фильтруем по hours в get_metrics_for_node, но здесь нужна выборка имен.
-    # Для простоты используем список node_name из таблицы.
-    conn = db._connect()  # внутренний метод, но для отчета приемлемо
+    conn = db._connect()  
     try:
         cursor = conn.execute(
             """
