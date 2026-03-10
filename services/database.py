@@ -122,3 +122,46 @@ class MetricsDB:
             results.append(metrics)
 
         return results
+
+    def get_latest_metrics_for_all_nodes(self) -> List[HealthMetrics]:
+        with self._connect() as conn:
+            cursor = conn.execute(
+                """
+                SELECT m.*
+                FROM metrics AS m
+                INNER JOIN (
+                    SELECT node_name, MAX(timestamp) AS max_ts
+                    FROM metrics
+                    GROUP BY node_name
+                ) AS latest
+                ON m.node_name = latest.node_name AND m.timestamp = latest.max_ts
+                ORDER BY m.node_name
+                """
+            )
+            rows = cursor.fetchall()
+
+        results: List[HealthMetrics] = []
+
+        for row in rows:
+            ts = datetime.fromisoformat(row["timestamp"])
+
+            def _to_int(value: object) -> int | None:
+                return int(value) if value is not None else None
+
+            def _to_float(value: object) -> float | None:
+                return float(value) if value is not None else None
+
+            metrics = HealthMetrics(
+                node_name=row["node_name"],
+                timestamp=ts,
+                block_height=_to_int(row["block_height"]),
+                current_block_height=_to_int(row["current_block_height"]),
+                peers_count=_to_int(row["peers_count"]),
+                finality_lag=_to_int(row["finality_lag"]),
+                time_since_last_block=_to_int(row["time_since_last_block"]),
+                rpc_response_time=_to_float(row["rpc_response_time"]),
+                status=row["status"],
+            )
+            results.append(metrics)
+
+        return results

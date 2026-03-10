@@ -5,6 +5,7 @@ from typing import Any, Dict, List
 
 from fastapi import FastAPI
 from pydantic import BaseModel
+from sqlite3 import OperationalError
 
 from models.metrics import HealthMetrics
 from services.database import MetricsDB
@@ -32,7 +33,10 @@ class MetricsResponse(BaseModel):
 
 def _load_latest_metrics() -> List[HealthMetrics]:
     db = MetricsDB()
-    return db.get_latest_metrics_for_all_nodes()
+    try:
+        return db.get_latest_metrics_for_all_nodes()
+    except OperationalError:
+        return []
 
 
 @app.get("/health")
