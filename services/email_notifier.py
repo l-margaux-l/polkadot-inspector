@@ -36,6 +36,7 @@ async def send_email_alert(alert: Alert, recipients: List[str] | None = None) ->
 
     subject = "[CRITICAL] Polkadot Node Down"
     body = (
+        f"Node: {alert.node_name}\n"
         f"Time: {alert.timestamp.isoformat()}\n"
         f"Level: {alert.level}\n"
         f"Message: {alert.message}\n"

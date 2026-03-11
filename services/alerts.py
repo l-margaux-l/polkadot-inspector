@@ -18,6 +18,7 @@ class Alert:
     level: str
     message: str
     timestamp: datetime
+    node_name: str
 
 
 def _now_utc() -> datetime:
@@ -47,6 +48,7 @@ def check_alerts(metrics: HealthMetrics) -> List[Alert]:
                     level=ALERT_LEVEL_CRITICAL,
                     message=f"Block height lag is too high: {lag}",
                     timestamp=now,
+                    node_name=metrics.node_name,
                 )
             )
         elif lag >= block_warning:
@@ -55,6 +57,7 @@ def check_alerts(metrics: HealthMetrics) -> List[Alert]:
                     level=ALERT_LEVEL_WARNING,
                     message=f"Block height lag is elevated: {lag}",
                     timestamp=now,
+                    node_name=metrics.node_name,
                 )
             )
 
@@ -65,6 +68,7 @@ def check_alerts(metrics: HealthMetrics) -> List[Alert]:
                     level=ALERT_LEVEL_CRITICAL,
                     message=f"Low peers count: {metrics.peers_count}",
                     timestamp=now,
+                    node_name=metrics.node_name,
                 )
             )
         elif metrics.peers_count <= peers_warning:
@@ -73,6 +77,7 @@ def check_alerts(metrics: HealthMetrics) -> List[Alert]:
                     level=ALERT_LEVEL_WARNING,
                     message=f"Moderate peers count: {metrics.peers_count}",
                     timestamp=now,
+                    node_name=metrics.node_name,
                 )
             )
 
@@ -83,6 +88,7 @@ def check_alerts(metrics: HealthMetrics) -> List[Alert]:
                     level=ALERT_LEVEL_CRITICAL,
                     message=f"Finality lag is critical: {metrics.finality_lag}",
                     timestamp=now,
+                    node_name=metrics.node_name,
                 )
             )
         elif metrics.finality_lag >= finality_warning:
@@ -91,6 +97,7 @@ def check_alerts(metrics: HealthMetrics) -> List[Alert]:
                     level=ALERT_LEVEL_WARNING,
                     message=f"Finality lag is elevated: {metrics.finality_lag}",
                     timestamp=now,
+                    node_name=metrics.node_name,
                 )
             )
 
@@ -104,6 +111,7 @@ def check_alerts(metrics: HealthMetrics) -> List[Alert]:
                         f"{metrics.rpc_response_time:.0f} ms"
                     ),
                     timestamp=now,
+                    node_name=metrics.node_name,
                 )
             )
         elif metrics.rpc_response_time >= rpc_warning:
@@ -115,6 +123,7 @@ def check_alerts(metrics: HealthMetrics) -> List[Alert]:
                         f"{metrics.rpc_response_time:.0f} ms"
                     ),
                     timestamp=now,
+                    node_name=metrics.node_name,
                 )
             )
 
@@ -128,6 +137,7 @@ def check_alerts(metrics: HealthMetrics) -> List[Alert]:
                         f"{metrics.time_since_last_block} s"
                     ),
                     timestamp=now,
+                    node_name=metrics.node_name,
                 )
             )
         elif metrics.time_since_last_block >= ts_warning:
@@ -139,6 +149,7 @@ def check_alerts(metrics: HealthMetrics) -> List[Alert]:
                         f"{metrics.time_since_last_block} s"
                     ),
                     timestamp=now,
+                    node_name=metrics.node_name,
                 )
             )
 
@@ -148,6 +159,7 @@ def check_alerts(metrics: HealthMetrics) -> List[Alert]:
                 level=ALERT_LEVEL_CRITICAL,
                 message="Overall node health is critical",
                 timestamp=now,
+                node_name=metrics.node_name,
             )
         )
     elif metrics.status == "warning":
@@ -156,6 +168,7 @@ def check_alerts(metrics: HealthMetrics) -> List[Alert]:
                 level=ALERT_LEVEL_WARNING,
                 message="Overall node health is degraded",
                 timestamp=now,
+                node_name=metrics.node_name,
             )
         )
 

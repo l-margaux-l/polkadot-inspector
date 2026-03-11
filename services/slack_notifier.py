@@ -37,6 +37,7 @@ async def send_slack_alert(alert: Alert) -> None:
                     "type": "mrkdwn",
                     "text": (
                         f"*{title}*\n"
+                        f"Node: `{alert.node_name}`\n"
                         f"Time: `{ts}`\n"
                         f"Level: `{alert.level}`\n"
                         f"{emoji} {alert.message}"
