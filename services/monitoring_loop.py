@@ -11,6 +11,7 @@ from services.database import MetricsDB
 from services.health_checker import collect_all_metrics
 from services.logger import log_metrics, setup_logger
 from services.slack_notifier import send_slack_alert
+from services.email_notifier import send_email_alert
 from services.nodes_config import load_nodes_config
 from services.status_exporter import export_status_to_file
 
@@ -41,6 +42,7 @@ async def monitoring_loop(check_interval: int | None = None) -> None:
             for alert in alerts:
                 log_alert(alert)
                 await send_slack_alert(alert)
+                await send_email_alert(alert)
 
         if iteration_metrics:
             export_status_to_file(iteration_metrics)
